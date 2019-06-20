@@ -3,7 +3,7 @@ library edenvidi_progress_indicator;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-typedef Widget ProgressDialogBuilder( final int height, final String message, final double progress );
+typedef Widget ProgressDialogBuilder( final double height, final String message, final double progress );
 
 class ProgressDialog {
 	final GlobalKey<_LoadingIndicatorState> _indicator_state = new GlobalKey();
@@ -11,6 +11,7 @@ class ProgressDialog {
 	final BuildContext context;
 	final Color background_color;
 	final ShapeBorder shape_border;
+	final double height;
 	Widget dialog;
 	BuildContext _dialog_context;
 	String _message;
@@ -24,6 +25,7 @@ class ProgressDialog {
 		this.builder,
 		this.background_color,
 		this.shape_border = const RoundedRectangleBorder( borderRadius: BorderRadius.all( Radius.circular( 10.0 ) ) ),
+		this.height = 100,
 	} ): _message = message, _progress = progress, assert( context != null );
 	
 	bool get isShowing => _is_showing;
@@ -47,7 +49,7 @@ class ProgressDialog {
 	
 	void show() {
 		if (!_is_showing) {
-			if ( dialog == null ) dialog = new _LoadingIndicator( key: _indicator_state, message: _message, onDispose: () => _is_showing = false, );
+			if ( dialog == null ) dialog = new _LoadingIndicator( key: _indicator_state, message: _message, height: height, onDispose: () => _is_showing = false, );
 			_is_showing = true;
 			showDialog<dynamic>(
 				context: context,
@@ -73,7 +75,15 @@ class _LoadingIndicator extends StatefulWidget {
 	final double progress;
 	final ProgressDialogBuilder builder;
 	final VoidCallback onDispose;
-	const _LoadingIndicator( { Key key, @required this.message, @required this.onDispose, this.builder, this.progress } ): super( key: key );
+	final double height;
+	const _LoadingIndicator( {
+		Key key,
+		@required this.message,
+		@required this.onDispose,
+		@required this.height,
+		this.builder,
+		this.progress
+	} ): assert( message != null ), assert( onDispose != null ), assert( height != null ), super( key: key );
 	@override
 	State<StatefulWidget> createState() => _LoadingIndicatorState();
 }
@@ -86,13 +96,13 @@ class _LoadingIndicatorState extends State<_LoadingIndicator> {
 		onWillPop: () => Future.value(false),
 		child: new Container(
 			padding: const EdgeInsets.all(10.0),
-			height: 100,
-			child: widget.builder != null ? widget.builder(100, _message, _progress) : new Row(
+			height: widget.height,
+			child: widget.builder != null ? widget.builder(widget.height, _message, _progress) : new Row(
 				children: <Widget>[
 					new CircularProgressIndicator(
 						value: _progress,
 					),
-					new SizedBox(width: 10, height: 100,),
+					new SizedBox(width: 10, height: widget.height,),
 					new Expanded(
 						child: new Text(
 							_message,
