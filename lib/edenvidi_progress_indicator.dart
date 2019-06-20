@@ -9,6 +9,8 @@ class ProgressDialog {
 	final GlobalKey<_LoadingIndicatorState> _indicator_state = new GlobalKey();
 	final ProgressDialogBuilder builder;
 	final BuildContext context;
+	final Color background_color;
+	final ShapeBorder shape_border;
 	Widget dialog;
 	BuildContext _dialog_context;
 	String _message;
@@ -20,6 +22,8 @@ class ProgressDialog {
 		final String message = "Loading...",
 		final double progress,
 		this.builder,
+		this.background_color,
+		this.shape_border = const RoundedRectangleBorder( borderRadius: BorderRadius.all( Radius.circular( 10.0 ) ) ),
 	} ): _message = message, _progress = progress, assert( context != null );
 	
 	bool get isShowing => _is_showing;
@@ -43,18 +47,19 @@ class ProgressDialog {
 	
 	void show() {
 		if (!_is_showing) {
-			if ( dialog == null ) dialog = new _LoadingIndicator( key: _indicator_state, message: _message, );
+			if ( dialog == null ) dialog = new _LoadingIndicator( key: _indicator_state, message: _message, onDispose: () => _is_showing = false, );
 			_is_showing = true;
 			showDialog<dynamic>(
 				context: context,
 				barrierDismissible: false,
-				builder: (BuildContext context) {
-					_dialog_context = context;
+				builder: (BuildContext dialog_context) {
+					_dialog_context = dialog_context;
 					return new Dialog(
 						insetAnimationCurve: Curves.easeInOut,
 						insetAnimationDuration: Duration(milliseconds: 100),
 						elevation: 10.0,
-						shape: RoundedRectangleBorder( borderRadius: BorderRadius.all( Radius.circular( 10.0 ) ) ),
+						backgroundColor: background_color,
+						shape: shape_border,
 						child: dialog,
 					);
 				},
@@ -67,7 +72,8 @@ class _LoadingIndicator extends StatefulWidget {
 	final String message;
 	final double progress;
 	final ProgressDialogBuilder builder;
-	const _LoadingIndicator( { Key key, this.message, this.builder, this.progress } ): super( key: key );
+	final VoidCallback onDispose;
+	const _LoadingIndicator( { Key key, @required this.message, @required this.onDispose, this.builder, this.progress } ): super( key: key );
 	@override
 	State<StatefulWidget> createState() => _LoadingIndicatorState();
 }
@@ -115,5 +121,11 @@ class _LoadingIndicatorState extends State<_LoadingIndicator> {
 		_message = widget.message;
 		_progress = widget.progress;
 		super.initState();
+	}
+	
+	@override
+	void dispose() {
+		widget.onDispose();
+		super.dispose();
 	}
 }
