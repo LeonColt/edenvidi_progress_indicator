@@ -2,71 +2,68 @@ library edenvidi_progress_indicator;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:synchronized/synchronized.dart';
 
 typedef Widget ProgressDialogBuilder( final double height, final String message, final double progress );
+
 
 class ProgressDialog {
 	final GlobalKey<_LoadingIndicatorState> _indicator_state = new GlobalKey();
 	final ProgressDialogBuilder builder;
-	final BuildContext context;
 	final Color background_color;
 	final ShapeBorder shape_border;
 	final double height;
-	Widget dialog;
-	BuildContext _dialog_context;
 	String _message;
 	double _progress;
 	
-	bool _is_showing = false;
+	bool _is_dimissed = false;
+	final _lock = new Lock();
+	
 	ProgressDialog( {
-		@required this.context,
 		final String message = "Loading...",
 		final double progress,
 		this.builder,
 		this.background_color,
 		this.shape_border = const RoundedRectangleBorder( borderRadius: BorderRadius.all( Radius.circular( 10.0 ) ) ),
 		this.height = 100,
-	} ): _message = message, _progress = progress, assert( context != null );
+	} ): _message = message, _progress = progress;
 	
-	bool get isShowing => _is_showing;
+	bool get isShowing => !_is_dimissed;
 	String get message => _message;
 	
 	set message( final String message ) {
 		_message = message;
-		_indicator_state.currentState.message = message;
+		if ( _indicator_state.currentState != null ) _indicator_state.currentState.message = message;
 	}
 	
 	set progress( final double progress ) {
 		_progress = progress;
-		_indicator_state.currentState.progress = progress;
-	}
-	void hide() {
-		if (_is_showing) {
-			_is_showing = false;
-			Navigator.of(_dialog_context).pop();
-		}
+		if ( _indicator_state.currentState != null ) _indicator_state.currentState.progress = progress;
 	}
 	
-	void show() {
-		if (!_is_showing) {
-			if ( dialog == null ) dialog = new _LoadingIndicator( key: _indicator_state, message: _message, height: height, onDispose: () => _is_showing = false, );
-			_is_showing = true;
-			showDialog<dynamic>(
-				context: context,
-				barrierDismissible: false,
-				builder: (BuildContext dialog_context) {
-					_dialog_context = dialog_context;
-					return new Dialog(
-						insetAnimationCurve: Curves.easeInOut,
-						insetAnimationDuration: Duration(milliseconds: 100),
-						elevation: 10.0,
-						backgroundColor: background_color,
-						shape: shape_border,
-						child: dialog,
-					);
-				},
-			);
-		}
+	void show( final BuildContext context ) async {
+		_is_dimissed = false;
+		showGeneralDialog(
+			context: context,
+			pageBuilder: ( context, animation1, animation2 ) => new Dialog(
+				insetAnimationCurve: Curves.easeInOut,
+				insetAnimationDuration: Duration(milliseconds: 100),
+				elevation: 10.0,
+				backgroundColor: background_color,
+				shape: shape_border,
+				child: new _LoadingIndicator( key: _indicator_state, message: _message, height: height, builder: builder, ),
+			),
+			barrierDismissible: false,
+			transitionDuration: Duration(milliseconds: 500),
+		).then( ( dismissed ) {
+			_is_dimissed = dismissed;
+		});
+	}
+	
+	void dismiss( BuildContext context ) async {
+		await _lock.synchronized( () async {
+			if ( !_is_dimissed ) Navigator.of(context, rootNavigator: true).pop(true);
+		});
 	}
 }
 
@@ -74,16 +71,14 @@ class _LoadingIndicator extends StatefulWidget {
 	final String message;
 	final double progress;
 	final ProgressDialogBuilder builder;
-	final VoidCallback onDispose;
 	final double height;
 	const _LoadingIndicator( {
 		Key key,
 		@required this.message,
-		@required this.onDispose,
 		@required this.height,
 		this.builder,
 		this.progress
-	} ): assert( message != null ), assert( onDispose != null ), assert( height != null ), super( key: key );
+	} ): assert( message != null ), assert( height != null ), super( key: key );
 	@override
 	State<StatefulWidget> createState() => _LoadingIndicatorState();
 }
@@ -131,11 +126,5 @@ class _LoadingIndicatorState extends State<_LoadingIndicator> {
 		_message = widget.message;
 		_progress = widget.progress;
 		super.initState();
-	}
-	
-	@override
-	void dispose() {
-		widget.onDispose();
-		super.dispose();
 	}
 }
